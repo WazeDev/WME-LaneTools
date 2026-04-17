@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME LaneTools
 // @namespace    https://github.com/SkiDooGuy/WME-LaneTools
-// @version      2025.11.16.001
+// @version      2026.04.16.001
 // @description  Adds highlights and tools to WME to supplement the lanes feature
 // @author       SkiDooGuy, Click Saver by HBiede, Heuristics by kndcajun, assistance by jm6087
 // @updateURL    https://github.com/SkiDooGuy/WME-LaneTools/raw/master/WME-LaneTools.user.js
@@ -12,7 +12,6 @@
 // @match        https://beta.waze.com/*/editor*
 // @exclude      https://www.waze.com/user/editor*
 // @require      https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @require      https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      greasyfork.org
@@ -21,6 +20,7 @@
 
 /* global W */
 /* global WazeWrap */
+/* global turf */
 
 // import type { KeyboardShortcut, Node, Pixel, Segment, Selection, Turn, UserSession, WmeSDK, SegmentLaneGuidanceDirection } from "wme-sdk-typings";
 // import type { Position } from "geojson";
@@ -195,8 +195,7 @@ function ltInit() {
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-lanetools/53136";
     const LT_UPDATE_NOTES = `NEW:<br>
 UPDATES:<br>
-    - Move Lane Deletion to SDK Native<br>
-    - Fix issues with Selection and Reselection when Lane Tabs is open.<br>
+    - Fix Issue with Junction Box Turns Erroring the check<br>
 KNOWN ISSUE:<br>
 TODO:<br>
 `;
@@ -3154,6 +3153,7 @@ TODO:<br>
         // check turns in JBs
         // const jb = W.model.bigJunctions.getObjectArray();
         for (let t = 0; t < jpturns.length; t++) {
+            if(jpturns[t].fromSegmentId !== s.id) continue;
             const tdat = jpturns[t].lanes;
             if (tdat) {
                 addTurns(tdat.fromLaneIndex, tdat.toLaneIndex);
@@ -3319,10 +3319,10 @@ TODO:<br>
     function processLaneNumberChange(this: any) {
         const parent = $(this).parents().eq(8);
         const elem = parent[0];
-        const className = elem.className;
+        const className: LaneDirection = elem.className as LaneDirection;
         const numLanes = Number.parseInt($(this).val(), 10);
         waitForElementLoaded(".turn-lane-checkbox").then((elem) => {
-            setTurns(className, numLanes);
+            setTurns(className);
         });
         const laneCountNums = $(this).parents().find(".lt-add-lanes");
         if (laneCountNums.length > 0) {
