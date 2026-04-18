@@ -3776,7 +3776,8 @@ TODO:<br>
             return a;
         }
 
-        function lt_turn_angle_seg_to_seg(inSeg: Segment, connectorNode: Node, outSeg: Segment): number | null {
+        function lt_turn_angle_seg_to_seg(inSeg: Segment, connectorNode: Node, outSeg: Segment|null): number | null {
+            if(outSeg === null) return null;
             let inPoint: Position | undefined;
             let outPoint;
             if (inSeg.fromNodeId === connectorNode.id) {

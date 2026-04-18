@@ -3227,6 +3227,8 @@ TODO:<br>
             return a;
         }
         function lt_turn_angle_seg_to_seg(inSeg, connectorNode, outSeg) {
+            if (outSeg === null)
+                return null;
             let inPoint;
             let outPoint;
             if (inSeg.fromNodeId === connectorNode.id) {
