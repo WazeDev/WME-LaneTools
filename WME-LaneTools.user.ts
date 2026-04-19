@@ -195,8 +195,7 @@ function ltInit() {
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-lanetools/53136";
     const LT_UPDATE_NOTES = `NEW:<br>
 UPDATES:<br>
-    - Move Lane Deletion to SDK Native<br>
-    - Fix issues with Selection and Reselection when Lane Tabs is open.<br>
+    - Remove deprecated WazeWrap functionality<br>
 KNOWN ISSUE:<br>
 TODO:<br>
 `;
