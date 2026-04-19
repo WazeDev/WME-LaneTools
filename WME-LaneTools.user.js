@@ -1301,15 +1301,14 @@ TODO:<br>
         if (localStorage) {
             localStorage.setItem("LT_Settings", JSON.stringify(localSettings));
         }
-        const serverSave = await WazeWrap.Remote.SaveSettings("LT_Settings", localSettings);
-        if (serverSave === null) {
-            console.warn("LaneTools: User PIN not set in WazeWrap tab");
-        }
-        else {
-            if (serverSave === false) {
-                console.error("LaneTools: Unable to save settings to server");
-            }
-        }
+        // const serverSave = await WazeWrap.Remote.SaveSettings("LT_Settings", localSettings);
+        // if (serverSave === null) {
+        //     console.warn("LaneTools: User PIN not set in WazeWrap tab");
+        // } else {
+        //     if (serverSave === false) {
+        //         console.error("LaneTools: Unable to save settings to server");
+        //     }
+        // }
     }
     async function loadSpreadsheet() {
         let connected = false;
