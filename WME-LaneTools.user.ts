@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME LaneTools
 // @namespace    https://github.com/SkiDooGuy/WME-LaneTools
-// @version      2026.04.16.001
+// @version      2026.04.19.001
 // @description  Adds highlights and tools to WME to supplement the lanes feature
 // @author       SkiDooGuy, Click Saver by HBiede, Heuristics by kndcajun, assistance by jm6087
 // @updateURL    https://github.com/SkiDooGuy/WME-LaneTools/raw/master/WME-LaneTools.user.js
@@ -1321,10 +1321,10 @@ TODO:<br>
     async function loadSettings() {
         const localSettings: SettingsInterface = JSON.parse(<string>localStorage.getItem("LT_Settings"));
 
-        const serverSettings: SettingsInterface = await WazeWrap.Remote.RetrieveSettings("LT_Settings");
-        if (!serverSettings) {
-            console.error("LaneTools: Error communicating with WW settings server");
-        }
+        // const serverSettings: SettingsInterface = await WazeWrap.Remote.RetrieveSettings("LT_Settings");
+        // if (!serverSettings) {
+        //     console.error("LaneTools: Error communicating with WW settings server");
+        // }
 
         const defaultSettings: SettingsInterface = {
             lastSaveAction: 0,
@@ -1375,12 +1375,12 @@ TODO:<br>
         };
 
         LtSettings = $.extend({}, defaultSettings, localSettings);
-        if (serverSettings && serverSettings.lastSaveAction > LtSettings.lastSaveAction) {
-            $.extend(LtSettings, serverSettings);
-            // console.log('LaneTools: server settings used');
-        } else {
-            // console.log('LaneTools: local settings used');
-        }
+        // if (serverSettings && serverSettings.lastSaveAction > LtSettings.lastSaveAction) {
+        //     $.extend(LtSettings, serverSettings);
+        //     // console.log('LaneTools: server settings used');
+        // } else {
+        //     // console.log('LaneTools: local settings used');
+        // }
     }
 
     async function saveSettings() {
@@ -1548,9 +1548,9 @@ TODO:<br>
             await $.getJSON(
                 `https://sheets.googleapis.com/v4/spreadsheets/1_3sF09sMOid_us37j5CQqJZlBGGr1vI_3Rrmp5K-KCQ/values/Angles!A2:B?key=${apiKey}`
             )
-                .done((serverSettings) => {
-                    if (serverSettings.values.length > 0) {
-                        _.each(serverSettings.values, (v) => {
+                .done((configurationSettings) => {
+                    if (configurationSettings.values.length > 0) {
+                        _.each(configurationSettings.values, (v) => {
                             if (!configArray[v[1]]) {
                                 configArray[v[1]] = JSON.parse(v[0]);
                             }
