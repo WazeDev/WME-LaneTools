@@ -1,7 +1,7 @@
-// ==UserScript==
+ // ==UserScript==
 // @name         WME LaneTools
 // @namespace    https://github.com/SkiDooGuy/WME-LaneTools
-// @version      2025.11.16.001
+// @version      2026.04.19.001
 // @description  Adds highlights and tools to WME to supplement the lanes feature
 // @author       SkiDooGuy, Click Saver by HBiede, Heuristics by kndcajun, assistance by jm6087
 // @updateURL    https://github.com/SkiDooGuy/WME-LaneTools/raw/master/WME-LaneTools.user.js
@@ -1322,11 +1322,6 @@ TODO:<br>
     async function loadSettings() {
         const localSettings: SettingsInterface = JSON.parse(<string>localStorage.getItem("LT_Settings"));
 
-        const serverSettings: SettingsInterface = await WazeWrap.Remote.RetrieveSettings("LT_Settings");
-        if (!serverSettings) {
-            console.error("LaneTools: Error communicating with WW settings server");
-        }
-
         const defaultSettings: SettingsInterface = {
             lastSaveAction: 0,
             ScriptEnabled: true,
@@ -1376,12 +1371,7 @@ TODO:<br>
         };
 
         LtSettings = $.extend({}, defaultSettings, localSettings);
-        if (serverSettings && serverSettings.lastSaveAction > LtSettings.lastSaveAction) {
-            $.extend(LtSettings, serverSettings);
-            // console.log('LaneTools: server settings used');
-        } else {
-            // console.log('LaneTools: local settings used');
-        }
+        // console.log('LaneTools: local settings used');
     }
 
     async function saveSettings() {
@@ -1493,15 +1483,6 @@ TODO:<br>
 
         if (localStorage) {
             localStorage.setItem("LT_Settings", JSON.stringify(localSettings));
-        }
-        const serverSave = await WazeWrap.Remote.SaveSettings("LT_Settings", localSettings);
-
-        if (serverSave === null) {
-            console.warn("LaneTools: User PIN not set in WazeWrap tab");
-        } else {
-            if (serverSave === false) {
-                console.error("LaneTools: Unable to save settings to server");
-            }
         }
     }
 
