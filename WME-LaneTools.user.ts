@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME LaneTools
 // @namespace    https://github.com/SkiDooGuy/WME-LaneTools
-// @version      2026.07.27.001
+// @version      2026.11.22.001
 // @description  Adds highlights and tools to WME to supplement the lanes feature
 // @author       SkiDooGuy, Click Saver by HBiede, Heuristics by kndcajun, assistance by jm6087
 // @updateURL    https://update.greasyfork.org/scripts/537219/WME%20LaneTools.meta.js
@@ -23,13 +23,13 @@
 /* global WazeWrap */
 /* global turf */
 
-// import type { KeyboardShortcut, Node, Pixel, Segment, Selection, Turn, UserSession, WmeSDK, SegmentLaneGuidanceDirection } from "wme-sdk-typings";
+// import type { KeyboardShortcut, Node, Pixel, Segment, Selection, Turn, UserSession, WmeSDK, AsyncWmeSDK, SegmentLaneGuidanceDirection } from "wme-sdk-typings";
 // import type { Position } from "geojson";
 // import _ from "underscore";
 // import * as turf from "@turf/turf";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
 
-let sdk: WmeSDK;
+let sdk: AsyncWmeSDK | null = null;
 unsafeWindow.SDK_INITIALIZED.then(() => {
     if (!unsafeWindow.getWmeSdk) {
         throw new Error("SDK is not installed");
@@ -196,10 +196,8 @@ function ltInit() {
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-lanetools/53136";
     const LT_UPDATE_NOTES = `NEW:<br>
 UPDATES:<br>
-    - Migrate Ownership of the Lane Tools Config Sheet<br>
-    - Update Sheet to Fix Missing configuration Parameters<br>
+    - Support for Async SDK<br>
 KNOWN ISSUE:<br>
-    - Issues with updates to Lane Config Visual Display timing
     - Issues with Display of the U Turn.
 TODO:<br>
 `;
@@ -390,59 +388,82 @@ TODO:<br>
         return properties.styleName === "startPointStyle" && properties.layerName === LTLaneGraphics.name;
     }
 
+    interface NameStyleLaneNumContext {
+        feature?: {
+            properties?: {
+                style?: {
+                    laneNumLabel?: string;
+                    stroke?: string;
+                    strokeWidth?: number;
+                    strokeOpacity?: number;
+                    strokeDashstyle?: string;
+                    fillColor?: string;
+                    pointRadius?: number;
+                    externalGraphic?: string;
+                    graphicHeight?: number;
+                    graphicWidth?: number;
+                    rotation?: number;
+                    backgroundGraphic?: string;
+                    backgroundHeight?: number;
+                    backgroundWidth?: number;
+                    backgroundXOffset?: number;
+                    backgroundYOffset?: number;
+                };
+            };
+        };
+    }
+
     const styleConfig = {
         styleContext: {
-            nameStyleLabelColor: (context) => {
+            nameStyleLabelColor: () => {
                 return LtSettings.LabelColor;
             },
-            nameStyleLaneNum: (context) => {
+            nameStyleLaneNum: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.laneNumLabel;
             },
-            highlightStrokeColor: (context) => {
+            highlightStrokeColor: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.stroke;
             },
-            hightlightStrokeWidth: (context) => {
+            hightlightStrokeWidth: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.strokeWidth;
             },
-            hightlightStrokeOpacity: (context: { feature: { properties: { style: { strokeOpacity: number } } } }) => {
+            hightlightStrokeOpacity: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.strokeOpacity;
             },
-            hightlightStrokeDashStyle: (context: {
-                feature: { properties: { style: { strokeDashstyle: string } } };
-            }) => {
+            hightlightStrokeDashStyle: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.strokeDashstyle;
             },
-            highlightFillColor: (context: { feature: { properties: { style: { fillColor: string } } } }) => {
+            highlightFillColor: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.fillColor;
             },
-            highlightPointRadius: (context: { feature: { properties: { style: { pointRadius: number } } } }) => {
+            highlightPointRadius: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.pointRadius;
             },
-            externalGraphic: (context: { feature: { properties: { style: { externalGraphic: string } } } }) => {
+            externalGraphic: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.externalGraphic;
             },
-            graphicHeight: (context: { feature: { properties: { style: { graphicHeight: number } } } }) => {
+            graphicHeight: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.graphicHeight;
             },
-            graphicWidth: (context: { feature: { properties: { style: { graphicWidth: number } } } }) => {
+            graphicWidth: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.graphicWidth;
             },
-            rotation: (context: { feature: { properties: { style: { rotation: number } } } }) => {
+            rotation: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.rotation;
             },
-            backgroundGraphic: (context: { feature: { properties: { style: { backgroundGraphic: string } } } }) => {
+            backgroundGraphic: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.backgroundGraphic;
             },
-            backgroundHeight: (context: { feature: { properties: { style: { backgroundHeight: number } } } }) => {
+            backgroundHeight: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.backgroundHeight;
             },
-            backgroundWidth: (context: { feature: { properties: { style: { backgroundWidth: number } } } }) => {
+            backgroundWidth: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.backgroundWidth;
             },
-            backgroundXOffset: (context: { feature: { properties: { style: { backgroundXOffset: number } } } }) => {
+            backgroundXOffset: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.backgroundXOffset;
             },
-            backgroundYOffset: (context: { feature: { properties: { style: { backgroundYOffset: number } } } }) => {
+            backgroundYOffset: (context: NameStyleLaneNumContext) => {
                 return context?.feature?.properties?.style?.backgroundYOffset;
             },
         },
@@ -1072,6 +1093,14 @@ TODO:<br>
                 displayLaneGraphics();
             },
         });
+        sdk.Events.on({
+            eventName: "wme-map-data-loaded",
+            eventHandler: () => {
+                scanArea();
+                lanesTabSetup();
+                displayLaneGraphics();
+            },
+        });
 
         // Add keyboard shortcuts
         try {
@@ -1325,11 +1354,6 @@ TODO:<br>
     async function loadSettings() {
         const localSettings: SettingsInterface = JSON.parse(<string>localStorage.getItem("LT_Settings"));
 
-        // const serverSettings: SettingsInterface = await WazeWrap.Remote.RetrieveSettings("LT_Settings");
-        // if (!serverSettings) {
-        //     console.error("LaneTools: Error communicating with WW settings server");
-        // }
-
         const defaultSettings: SettingsInterface = {
             lastSaveAction: 0,
             ScriptEnabled: true,
@@ -1497,15 +1521,6 @@ TODO:<br>
         if (localStorage) {
             localStorage.setItem("LT_Settings", JSON.stringify(localSettings));
         }
-        // const serverSave = await WazeWrap.Remote.SaveSettings("LT_Settings", localSettings);
-
-        // if (serverSave === null) {
-        //     console.warn("LaneTools: User PIN not set in WazeWrap tab");
-        // } else {
-        //     if (serverSave === false) {
-        //         console.error("LaneTools: Unable to save settings to server");
-        //     }
-        // }
     }
 
     async function loadSpreadsheet() {
@@ -1768,12 +1783,12 @@ TODO:<br>
     // function getLegacySegObj(id) {
     //     return W.model.segments.getObjectById(id);
     // }
-    function getSegObj(id: number | null | undefined): Segment | null {
+    async function getSegObj(id: number | null | undefined): Promise<Segment | null> {
         if (!id) return null;
         return sdk.DataModel.Segments.getById({ segmentId: id });
     }
 
-    function getNodeObj(id: number | null): Node | null {
+    async function getNodeObj(id: number | null): Promise<Node | null> {
         if (id === null) return null;
         return sdk.DataModel.Nodes.getById({ nodeId: id });
     }
@@ -2210,23 +2225,23 @@ TODO:<br>
             }
         }
 
-        function colorCSDir() {
+        async function colorCSDir() {
             const selSeg: Segment | null =
                 isSegmentSelected(selection) && selection?.objectType === "segment"
                     ? sdk.DataModel.Segments.getById({ segmentId: selection.ids[0] })
                     : null;
 
             if (!selSeg) return;
-            const fwdNode = getNodeObj(selSeg?.toNodeId);
-            const revNode = getNodeObj(selSeg?.fromNodeId);
+            const fwdNode = await getNodeObj(selSeg?.toNodeId);
+            const revNode = await getNodeObj(selSeg?.fromNodeId);
 
-            const fwdConfig: LaneConfiguration = checkLanesConfiguration(
+            const fwdConfig: LaneConfiguration = await checkLanesConfiguration(
                 selSeg,
                 fwdNode,
                 fwdNode ? fwdNode.connectedSegmentIds : [],
                 selSeg?.toNodeLanesCount
             );
-            const revConfig: LaneConfiguration = checkLanesConfiguration(
+            const revConfig: LaneConfiguration = await checkLanesConfiguration(
                 selSeg,
                 revNode,
                 revNode ? revNode.connectedSegmentIds : [],
@@ -2919,20 +2934,23 @@ TODO:<br>
             }
         });
 
-        function scanSegment_Inner(seg: Segment, direction: number, segLength: number, tryRedo: boolean) {
+        async function scanSegment_Inner(seg: Segment, direction: number, segLength: number, tryRedo: boolean) {
             const fwdLaneCount: number = seg.fromNodeLanesCount;
             const revLaneCount: number = seg.toNodeLanesCount;
 
             if (fwdLaneCount + revLaneCount === 0) return;
 
-            let node: Node | null = getNodeObj(seg.toNodeId);
-            let oppNode: Node | null = getNodeObj(seg.fromNodeId);
+            let node: Node | null = await getNodeObj(seg.toNodeId);
+            let oppNode: Node | null = await getNodeObj(seg.fromNodeId).catch((err) => {
+                lt_log(`Error getting opposite node object for segment ${seg.id}: ${err}`, VERBOSITY.INFO);
+                return null;
+            }).then((n: Node | null) => n);
             let laneCount: number | null | undefined = fwdLaneCount;
             let oppLaneCount: number | null | undefined = revLaneCount;
 
             if (direction !== Direction.FORWARD) {
-                node = getNodeObj(seg.fromNodeId);
-                oppNode = getNodeObj(seg.toNodeId);
+                node = await getNodeObj(seg.fromNodeId);
+                oppNode = await getNodeObj(seg.toNodeId);
                 laneCount = revLaneCount;
                 oppLaneCount = fwdLaneCount;
             }
@@ -2955,7 +2973,7 @@ TODO:<br>
                 const nodeSegs = node.connectedSegmentIds;
 
                 if (laneCount && laneCount > 0) {
-                    const config: LaneConfiguration = checkLanesConfiguration(seg, node, nodeSegs, laneCount);
+                    const config: LaneConfiguration = await checkLanesConfiguration(seg, node, nodeSegs, laneCount);
                     tlns = config.tlns;
                     tio = config.tio;
                     lio = config.lio;
@@ -3061,12 +3079,12 @@ TODO:<br>
         }
     }
 
-    function checkLanesConfiguration(
+    async function checkLanesConfiguration(
         s: Segment,
         node: Node | null | undefined,
         segs: number[],
         numLanes: number | null | undefined
-    ): LaneConfiguration {
+    ): Promise<LaneConfiguration> {
         const laneConfig: LaneConfiguration = {
             tlns: false,
             tio: false,
@@ -3078,14 +3096,14 @@ TODO:<br>
         const turnLanes: number[] = [];
         // const turnGraph = W.model.getTurnGraph();
         // const pturns = turnGraph.getAllPathTurns();
-        const fromTurns = sdk.DataModel.Turns.getTurnsFromSegment({ segmentId: s.id });
-        const toTurns = sdk.DataModel.Turns.getTurnsToSegment({ segmentId: s.id });
+        const fromTurns = await sdk.DataModel.Turns.getTurnsFromSegment({ segmentId: s.id });
+        const toTurns = await sdk.DataModel.Turns.getTurnsToSegment({ segmentId: s.id });
         const pturns: Turn[] = fromTurns.filter((t: Turn) => t.isPathTurn);
         pturns.push(...toTurns.filter((t) => t.isPathTurn));
 
         const jpturns: Turn[] = fromTurns.filter((t: Turn) => t.isJunctionBoxTurn);
         jpturns.push(...toTurns.filter((t: Turn) => t.isJunctionBoxTurn));
-        const zoomLevel = sdk.Map.getZoomLevel();
+        const zoomLevel = await sdk.Map.getZoomLevel();
 
         function addTurns(fromLns: number | undefined, toLns: number | undefined) {
             if (toLns === undefined || fromLns === undefined) return;
@@ -3104,8 +3122,8 @@ TODO:<br>
 
         for (let i = 0; i < segs.length; i++) {
             if (segs[i] === s.id) continue;
-            const seg2 = getSegObj(segs[i]);
-            const turnsThrough: Turn[] = !node ? [] : sdk.DataModel.Turns.getTurnsThroughNode({ nodeId: node?.id });
+            const seg2 = await getSegObj(segs[i]);
+            const turnsThrough: Turn[] = !node ? [] : await sdk.DataModel.Turns.getTurnsThroughNode({ nodeId: node?.id });
             for (let idx = 0; idx < turnsThrough.length; ++idx) {
                 const t: Turn = turnsThrough[idx];
                 if (t.isUTurn || (t.fromSegmentId !== s.id && t.toSegmentId !== segs[i])) continue;
@@ -3339,11 +3357,6 @@ TODO:<br>
     }
     function initLaneGuidanceClickSaver() {
         const laneObserver = new MutationObserver((mutations) => {
-            // if (
-            //     W.selectionManager.getSelectedWMEFeatures()[0] &&
-            //     W.selectionManager.getSelectedWMEFeatures()[0].featureType === "segment" &&
-            //     getId("lt-ScriptEnabled").checked
-            // )
             const selection = sdk.Editing.getSelection();
             if (selection?.objectType === "segment" && LtSettings.ScriptEnabled) {
                 const laneCountElement = document.getElementsByName("laneCount");
@@ -3354,14 +3367,17 @@ TODO:<br>
             }
         });
 
-        laneObserver.observe(document.getElementById("edit-panel"), {
-            childList: true,
-            subtree: true,
-        });
+        const observationNode = document.getElementById("edit-panel")?.getRootNode();
+        if (observationNode) {
+            laneObserver.observe(observationNode, {
+                childList: true,
+                subtree: true,
+            });
+        }
         // console.log('LaneTools: Click Saver Module loaded');
     }
 
-    function isHeuristicsCandidate(
+    async function isHeuristicsCandidate(
         segCandidate: Segment,
         curNodeExit: Node,
         nodeExitSegIds: number[],
@@ -3369,7 +3385,7 @@ TODO:<br>
         laneCount: number | undefined | null,
         segLength: number,
         inSegRef: SegmentReference | null
-    ): HeuristicsCandidate {
+    ): Promise<HeuristicsCandidate> {
         // CRITERIA FOR HEURISTICS, as described on the wiki: https://wazeopedia.waze.com/wiki/USA/User:Nzahn1/Lanes#Mapping_lanes_on_divided_roadways
         // 1. Both left and right turns are possible at the intersection;
         // 2. The two portions of the divided roadway are essentially parallel to each other;
@@ -3443,7 +3459,7 @@ TODO:<br>
             if (nodeEntrySegIds[ii] === segId) {
                 continue;
             } // ignore same segment as our original
-            const is: Segment | null = getSegObj(nodeEntrySegIds[ii]);
+            const is: Segment | null = await getSegObj(nodeEntrySegIds[ii]);
             // Check turn from this seg to candidate seg
             if (is !== null && !lt_is_turn_allowed(is, curNodeEntry, segCandidate)) {
                 continue;
@@ -3534,7 +3550,12 @@ TODO:<br>
             if (nodeExitSegIds[ii] === segId) {
                 continue;
             } // ignore same segment as our original
-            const os: Segment | null = getSegObj(nodeExitSegIds[ii]);
+            const os: Segment | null = await getSegObj(nodeExitSegIds[ii]).then((seg) => {
+                if (seg === null) {
+                    lt_log(`Unable to get outseg2 ${nodeExitSegIds[ii]} for heuristics`, VERBOSITY.INFO);
+                }
+                return seg;
+            });
 
             // Check turn from candidate seg to this seg
             if (!lt_is_turn_allowed(segCandidate, curNodeExit, os)) {
@@ -3595,7 +3616,7 @@ TODO:<br>
                 // ignore same segment as our original
                 continue;
             }
-            const ai1: Segment | null = getSegObj(nodeEntrySegIds[ii]);
+            const ai1: Segment | null = await getSegObj(nodeEntrySegIds[ii]);
             let thisTimeFail = 0;
 
             // Ensure the segment is one-way TOWARD the node (incoming direction)

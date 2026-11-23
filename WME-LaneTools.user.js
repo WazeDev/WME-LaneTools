@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         WME LaneTools
 // @namespace    https://github.com/SkiDooGuy/WME-LaneTools
-// @version      2026.07.27.001
+// @version      2026.11.22.001
 // @description  Adds highlights and tools to WME to supplement the lanes feature
 // @author       SkiDooGuy, Click Saver by HBiede, Heuristics by kndcajun, assistance by jm6087
 // @updateURL    https://update.greasyfork.org/scripts/537219/WME%20LaneTools.meta.js
@@ -22,12 +22,12 @@
 /* global W */
 /* global WazeWrap */
 /* global turf */
-// import type { KeyboardShortcut, Node, Pixel, Segment, Selection, Turn, UserSession, WmeSDK, SegmentLaneGuidanceDirection } from "wme-sdk-typings";
+// import type { KeyboardShortcut, Node, Pixel, Segment, Selection, Turn, UserSession, WmeSDK, AsyncWmeSDK, SegmentLaneGuidanceDirection } from "wme-sdk-typings";
 // import type { Position } from "geojson";
 // import _ from "underscore";
 // import * as turf from "@turf/turf";
 // import WazeWrap from "https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js";
-let sdk;
+let sdk = null;
 unsafeWindow.SDK_INITIALIZED.then(() => {
     if (!unsafeWindow.getWmeSdk) {
         throw new Error("SDK is not installed");
@@ -102,10 +102,8 @@ function ltInit() {
     const FORUM_LINK = "https://www.waze.com/discuss/t/script-wme-lanetools/53136";
     const LT_UPDATE_NOTES = `NEW:<br>
 UPDATES:<br>
-    - Migrate Ownership of the Lane Tools Config Sheet<br>
-    - Update Sheet to Fix Missing configuration Parameters<br>
+    - Support for Async SDK<br>
 KNOWN ISSUE:<br>
-    - Issues with updates to Lane Config Visual Display timing
     - Issues with Display of the U Turn.
 TODO:<br>
 `;
@@ -288,7 +286,7 @@ TODO:<br>
     }
     const styleConfig = {
         styleContext: {
-            nameStyleLabelColor: (context) => {
+            nameStyleLabelColor: () => {
                 return LtSettings.LabelColor;
             },
             nameStyleLaneNum: (context) => {
@@ -934,6 +932,14 @@ TODO:<br>
                 displayLaneGraphics();
             },
         });
+        sdk.Events.on({
+            eventName: "wme-map-data-loaded",
+            eventHandler: () => {
+                scanArea();
+                lanesTabSetup();
+                displayLaneGraphics();
+            },
+        });
         // Add keyboard shortcuts
         try {
             const enableHighlightsShortcut = {
@@ -1184,10 +1190,6 @@ TODO:<br>
     }
     async function loadSettings() {
         const localSettings = JSON.parse(localStorage.getItem("LT_Settings"));
-        // const serverSettings: SettingsInterface = await WazeWrap.Remote.RetrieveSettings("LT_Settings");
-        // if (!serverSettings) {
-        //     console.error("LaneTools: Error communicating with WW settings server");
-        // }
         const defaultSettings = {
             lastSaveAction: 0,
             ScriptEnabled: true,
@@ -1305,14 +1307,6 @@ TODO:<br>
         if (localStorage) {
             localStorage.setItem("LT_Settings", JSON.stringify(localSettings));
         }
-        // const serverSave = await WazeWrap.Remote.SaveSettings("LT_Settings", localSettings);
-        // if (serverSave === null) {
-        //     console.warn("LaneTools: User PIN not set in WazeWrap tab");
-        // } else {
-        //     if (serverSave === false) {
-        //         console.error("LaneTools: Unable to save settings to server");
-        //     }
-        // }
     }
     async function loadSpreadsheet() {
         let connected = false;
@@ -1560,12 +1554,12 @@ TODO:<br>
     // function getLegacySegObj(id) {
     //     return W.model.segments.getObjectById(id);
     // }
-    function getSegObj(id) {
+    async function getSegObj(id) {
         if (!id)
             return null;
         return sdk.DataModel.Segments.getById({ segmentId: id });
     }
-    function getNodeObj(id) {
+    async function getNodeObj(id) {
         if (id === null)
             return null;
         return sdk.DataModel.Nodes.getById({ nodeId: id });
@@ -1934,16 +1928,16 @@ TODO:<br>
                 }
             }
         }
-        function colorCSDir() {
+        async function colorCSDir() {
             const selSeg = isSegmentSelected(selection) && selection?.objectType === "segment"
                 ? sdk.DataModel.Segments.getById({ segmentId: selection.ids[0] })
                 : null;
             if (!selSeg)
                 return;
-            const fwdNode = getNodeObj(selSeg?.toNodeId);
-            const revNode = getNodeObj(selSeg?.fromNodeId);
-            const fwdConfig = checkLanesConfiguration(selSeg, fwdNode, fwdNode ? fwdNode.connectedSegmentIds : [], selSeg?.toNodeLanesCount);
-            const revConfig = checkLanesConfiguration(selSeg, revNode, revNode ? revNode.connectedSegmentIds : [], selSeg?.fromNodeLanesCount);
+            const fwdNode = await getNodeObj(selSeg?.toNodeId);
+            const revNode = await getNodeObj(selSeg?.fromNodeId);
+            const fwdConfig = await checkLanesConfiguration(selSeg, fwdNode, fwdNode ? fwdNode.connectedSegmentIds : [], selSeg?.toNodeLanesCount);
+            const revConfig = await checkLanesConfiguration(selSeg, revNode, revNode ? revNode.connectedSegmentIds : [], selSeg?.fromNodeLanesCount);
             if (fwdConfig.csMode > 0) {
                 const csColor = fwdConfig.csMode === 1 ? LtSettings.CS1Color : LtSettings.CS2Color;
                 const arrowDiv = $("#segment-edit-lanes > div > div > div.fwd-lanes > div.lane-instruction.lane-instruction-to > div.instruction > div.lane-arrows > div").children();
@@ -2525,18 +2519,21 @@ TODO:<br>
                 }
             }
         });
-        function scanSegment_Inner(seg, direction, segLength, tryRedo) {
+        async function scanSegment_Inner(seg, direction, segLength, tryRedo) {
             const fwdLaneCount = seg.fromNodeLanesCount;
             const revLaneCount = seg.toNodeLanesCount;
             if (fwdLaneCount + revLaneCount === 0)
                 return;
-            let node = getNodeObj(seg.toNodeId);
-            let oppNode = getNodeObj(seg.fromNodeId);
+            let node = await getNodeObj(seg.toNodeId);
+            let oppNode = await getNodeObj(seg.fromNodeId).catch((err) => {
+                lt_log(`Error getting opposite node object for segment ${seg.id}: ${err}`, VERBOSITY.INFO);
+                return null;
+            }).then((n) => n);
             let laneCount = fwdLaneCount;
             let oppLaneCount = revLaneCount;
             if (direction !== Direction.FORWARD) {
-                node = getNodeObj(seg.fromNodeId);
-                oppNode = getNodeObj(seg.toNodeId);
+                node = await getNodeObj(seg.fromNodeId);
+                oppNode = await getNodeObj(seg.toNodeId);
                 laneCount = revLaneCount;
                 oppLaneCount = fwdLaneCount;
             }
@@ -2555,7 +2552,7 @@ TODO:<br>
             if (node !== null && onScreen(node, zoomLevel)) {
                 const nodeSegs = node.connectedSegmentIds;
                 if (laneCount && laneCount > 0) {
-                    const config = checkLanesConfiguration(seg, node, nodeSegs, laneCount);
+                    const config = await checkLanesConfiguration(seg, node, nodeSegs, laneCount);
                     tlns = config.tlns;
                     tio = config.tio;
                     lio = config.lio;
@@ -2621,7 +2618,7 @@ TODO:<br>
             return tryRedo;
         }
     }
-    function checkLanesConfiguration(s, node, segs, numLanes) {
+    async function checkLanesConfiguration(s, node, segs, numLanes) {
         const laneConfig = {
             tlns: false,
             tio: false,
@@ -2633,13 +2630,13 @@ TODO:<br>
         const turnLanes = [];
         // const turnGraph = W.model.getTurnGraph();
         // const pturns = turnGraph.getAllPathTurns();
-        const fromTurns = sdk.DataModel.Turns.getTurnsFromSegment({ segmentId: s.id });
-        const toTurns = sdk.DataModel.Turns.getTurnsToSegment({ segmentId: s.id });
+        const fromTurns = await sdk.DataModel.Turns.getTurnsFromSegment({ segmentId: s.id });
+        const toTurns = await sdk.DataModel.Turns.getTurnsToSegment({ segmentId: s.id });
         const pturns = fromTurns.filter((t) => t.isPathTurn);
         pturns.push(...toTurns.filter((t) => t.isPathTurn));
         const jpturns = fromTurns.filter((t) => t.isJunctionBoxTurn);
         jpturns.push(...toTurns.filter((t) => t.isJunctionBoxTurn));
-        const zoomLevel = sdk.Map.getZoomLevel();
+        const zoomLevel = await sdk.Map.getZoomLevel();
         function addTurns(fromLns, toLns) {
             if (toLns === undefined || fromLns === undefined)
                 return;
@@ -2658,8 +2655,8 @@ TODO:<br>
         for (let i = 0; i < segs.length; i++) {
             if (segs[i] === s.id)
                 continue;
-            const seg2 = getSegObj(segs[i]);
-            const turnsThrough = !node ? [] : sdk.DataModel.Turns.getTurnsThroughNode({ nodeId: node?.id });
+            const seg2 = await getSegObj(segs[i]);
+            const turnsThrough = !node ? [] : await sdk.DataModel.Turns.getTurnsThroughNode({ nodeId: node?.id });
             for (let idx = 0; idx < turnsThrough.length; ++idx) {
                 const t = turnsThrough[idx];
                 if (t.isUTurn || (t.fromSegmentId !== s.id && t.toSegmentId !== segs[i]))
@@ -2876,11 +2873,6 @@ TODO:<br>
     }
     function initLaneGuidanceClickSaver() {
         const laneObserver = new MutationObserver((mutations) => {
-            // if (
-            //     W.selectionManager.getSelectedWMEFeatures()[0] &&
-            //     W.selectionManager.getSelectedWMEFeatures()[0].featureType === "segment" &&
-            //     getId("lt-ScriptEnabled").checked
-            // )
             const selection = sdk.Editing.getSelection();
             if (selection?.objectType === "segment" && LtSettings.ScriptEnabled) {
                 const laneCountElement = document.getElementsByName("laneCount");
@@ -2890,13 +2882,16 @@ TODO:<br>
                 }
             }
         });
-        laneObserver.observe(document.getElementById("edit-panel"), {
-            childList: true,
-            subtree: true,
-        });
+        const observationNode = document.getElementById("edit-panel")?.getRootNode();
+        if (observationNode) {
+            laneObserver.observe(observationNode, {
+                childList: true,
+                subtree: true,
+            });
+        }
         // console.log('LaneTools: Click Saver Module loaded');
     }
-    function isHeuristicsCandidate(segCandidate, curNodeExit, nodeExitSegIds, curNodeEntry, laneCount, segLength, inSegRef) {
+    async function isHeuristicsCandidate(segCandidate, curNodeExit, nodeExitSegIds, curNodeEntry, laneCount, segLength, inSegRef) {
         // CRITERIA FOR HEURISTICS, as described on the wiki: https://wazeopedia.waze.com/wiki/USA/User:Nzahn1/Lanes#Mapping_lanes_on_divided_roadways
         // 1. Both left and right turns are possible at the intersection;
         // 2. The two portions of the divided roadway are essentially parallel to each other;
@@ -2952,7 +2947,7 @@ TODO:<br>
             if (nodeEntrySegIds[ii] === segId) {
                 continue;
             } // ignore same segment as our original
-            const is = getSegObj(nodeEntrySegIds[ii]);
+            const is = await getSegObj(nodeEntrySegIds[ii]);
             // Check turn from this seg to candidate seg
             if (is !== null && !lt_is_turn_allowed(is, curNodeEntry, segCandidate)) {
                 continue;
@@ -3030,7 +3025,12 @@ TODO:<br>
             if (nodeExitSegIds[ii] === segId) {
                 continue;
             } // ignore same segment as our original
-            const os = getSegObj(nodeExitSegIds[ii]);
+            const os = await getSegObj(nodeExitSegIds[ii]).then((seg) => {
+                if (seg === null) {
+                    lt_log(`Unable to get outseg2 ${nodeExitSegIds[ii]} for heuristics`, VERBOSITY.INFO);
+                }
+                return seg;
+            });
             // Check turn from candidate seg to this seg
             if (!lt_is_turn_allowed(segCandidate, curNodeExit, os)) {
                 continue;
@@ -3075,7 +3075,7 @@ TODO:<br>
                 // ignore same segment as our original
                 continue;
             }
-            const ai1 = getSegObj(nodeEntrySegIds[ii]);
+            const ai1 = await getSegObj(nodeEntrySegIds[ii]);
             let thisTimeFail = 0;
             // Ensure the segment is one-way TOWARD the node (incoming direction)
             const sourceSegment = (ai1?.isBtoA && ai1.fromNodeId === curNodeEntry.id) ||
