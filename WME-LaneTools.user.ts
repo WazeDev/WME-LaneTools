@@ -1093,6 +1093,14 @@ TODO:<br>
                 displayLaneGraphics();
             },
         });
+        sdk.Events.on({
+            eventName: "wme-map-data-loaded",
+            eventHandler: () => {
+                scanArea();
+                lanesTabSetup();
+                displayLaneGraphics();
+            },
+        });
 
         // Add keyboard shortcuts
         try {
